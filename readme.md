@@ -132,6 +132,38 @@ El sistema está listo para su uso y verificación por parte del docente.
 ## 10. Evidencias (Anexos)
 Las evidencias se encuentran en la carpeta `/evidencias/` del repositorio.
 
+### Evidencias Visuales
+
+1. **Página Inicial**
+   ![Página inicial del sistema](evidencias/01-pagina-inicial.png)
+
+2. **Pregunta General Respondida**
+   ![Pregunta general y respuesta del bot](evidencias/02-pregunta-general-respondida.png)
+
+3. **Reporte de Problema con Solución**
+   ![Reporte de problema y solución propuesta](evidencias/03-reporte-problema-solucion.png)
+
+4. **Feedback Negativo**
+   ![Feedback "No, necesito más ayuda"](evidencias/04-feedback-no.png)
+
+5. **Opciones de Seguimiento**
+   ![Opciones de abrir ticket o explicar mejor](evidencias/05-opcion-abrir-ticket.png)
+
+6. **Bot Pide Detalles del Ticket**
+   ![Bot solicitando detalles para el ticket](evidencias/06-bot-pide-detalles-ticket.png)
+
+7. **Detalles del Ticket Ingresados**
+   ![Usuario ingresando detalles del problema](evidencias/07-detalles-ticket-ingresados.png)
+
+8. **Confirmación de Ticket Creado**
+   ![Confirmación del bot con ID del ticket](evidencias/08-confirmacion-ticket-creado.png)
+
+9. **Contenedores Docker Corriendo**
+   ![Salida de docker-compose ps con contenedores activos](evidencias/09-docker-contenedores-corriendo.png)
+
+10. **Ticket en Base de Datos**
+    ![Ticket almacenado en la base de datos SQLite](evidencias/10-ticket-en-base-de-datos.png)
+
 | Anexo | Archivo | Descripción |
 |-------|---------|-------------|
 | 1 | `01-pagina-inicial.png` | Página de bienvenida del sistema. |
@@ -143,16 +175,14 @@ Las evidencias se encuentran en la carpeta `/evidencias/` del repositorio.
 | 7 | `07-detalles-ticket-ingresados.png` | Detalles del problema ingresados por el usuario. |
 | 8 | `08-confirmacion-ticket-creado.png` | Confirmación del ticket creado con ID. |
 | 9 | `09-docker-contenedores-corriendo.png` | Contenedores Docker activos. |
-| 10 | `10-ollama-modelo-disponible.png` | Modelo `smollm:360m` disponible en Ollama. |
-
-> **Nota**: Las imágenes se agregarán a la carpeta `/evidencias/` y se referenciarán aquí una vez que estén disponibles.
+| 10 | `10-ticket-en-base-de-datos.png` | Ticket almacenado en la base de datos SQLite. |
 
 ---
 
 ## 11. Firmas
 | Cargo | Nombre | Firma | Fecha |
 |-------|--------|-------|-------|
-| **Auditor Responsable** | [Tu Nombre Completo] | _____________________ | 24/06/2026 |
+| **Auditor Responsable** | [Rodrigo Samael Adonai Lira Alvarez] | _____________________ | 24/06/2026 |
 
 ---
 
