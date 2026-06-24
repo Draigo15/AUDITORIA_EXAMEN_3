@@ -40,12 +40,28 @@ logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
 
 # --- CONFIGURACIÓN Y MODELOS ---
 VECTOR_STORE_DIR = "vector_store"
-DB_PATH = "tickets.db"
+DB_PATH = "/tmp/tickets.db"
 app = FastAPI(title="Corporate EPIS Pilot API - Advanced Flow")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
+
+# --- CREAR TABLA DE TICKETS AL INICIAR ---
+def init_database():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS tickets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        description TEXT NOT NULL,
+        status TEXT NOT NULL
+    )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_database()
 
 # --- AÑADIDO: INSTRUMENTACIÓN DE PROMETHEUS ---
 Instrumentator().instrument(app).expose(app)
@@ -75,39 +91,45 @@ def create_support_ticket(description: str) -> str:
     conn.close()
     return f"De acuerdo. He creado el ticket de soporte #{ticket_id} con tu problema: '{problem_description}'. El equipo técnico se pondrá en contacto contigo."
 
-# El router ahora es más simple
-# CAMBIO 1: Añadimos la nueva intención 'despedida'
-class RouteQuery(BaseModel):
-    intent: Literal["pregunta_general", "reporte_de_problema", "despedida"] = Field(description="La intención del usuario.")
-
-output_parser = JsonOutputParser(pydantic_object=RouteQuery)
-# CAMBIO 2: Actualizamos el prompt para que el LLM sepa qué es una 'despedida'
+# Router de intenciones simplificado para smollm:360m
 router_prompt = PromptTemplate(
-    template="""
-    Clasifica la pregunta del usuario en 'pregunta_general', 'reporte_de_problema' o 'despedida'. Responde solo con JSON.
-    'pregunta_general': El usuario pide información (¿qué es?, ¿cuántos?, ¿cómo?).
-    'reporte_de_problema': El usuario describe un problema, algo está roto o no funciona.
-    'despedida': El usuario expresa gratitud o se despide (gracias, adiós, perfecto, vale).
+    template="""Responde SOLO con una de estas palabras: pregunta_general, reporte_de_problema o despedida.
+    - pregunta_general: Pregunta sobre información (¿qué?, ¿cuántos?, ¿cómo?)
+    - reporte_de_problema: Describe un problema o error
+    - despedida: Gracias, adiós, perfecto, vale
+    
     Pregunta: {question}
-    Formato: {format_instructions}
-    """,
+    Respuesta:""",
     input_variables=["question"],
-    partial_variables={"format_instructions": output_parser.get_format_instructions()},
 )
-def extract_json_from_string(text: str) -> str:
-    match = re.search(r'\{.*\}', text, re.DOTALL)
-    # Si no encuentra JSON o la pregunta es muy corta, es probable que sea una despedida
-    if not match and len(text) < 20:
-        return '{"intent": "despedida"}'
-    return match.group(0) if match else '{"intent": "pregunta_general"}'
 
-router_chain = router_prompt | llm | RunnableLambda(extract_json_from_string) | output_parser
+def classify_intent(question: str) -> str:
+    """Clasifica la intención del usuario de forma robusta."""
+    # Primero revisamos keywords para ser más robustos
+    question_lower = question.lower()
+    goodbye_keywords = ["gracias", "adios", "adiós", "perfecto", "vale", "ok", "grax", "bye"]
+    problem_keywords = ["problema", "error", "no funciona", "no puedo", "fallo", "roto", "avería"]
+    
+    if any(keyword in question_lower for keyword in goodbye_keywords):
+        return "despedida"
+    if any(keyword in question_lower for keyword in problem_keywords):
+        return "reporte_de_problema"
+    
+    # Si no hay keywords, preguntamos al modelo
+    try:
+        chain = router_prompt | llm
+        response = chain.invoke({"question": question}).strip().lower()
+        if "reporte" in response or "problema" in response:
+            return "reporte_de_problema"
+        if "despedida" in response or "gracias" in response:
+            return "despedida"
+        return "pregunta_general"
+    except:
+        return "pregunta_general"
 
-chain_with_preserved_input = RunnablePassthrough.assign(decision=router_chain)
+problem_chain = RunnableLambda(lambda x: {"query": x}) | rag_chain
 
-problem_chain = RunnableLambda(lambda x: {"query": x["question"]}) | rag_chain
-
-# --- ENDPOINT DE LA API (MODIFICADO) ---
+# --- ENDPOINT DE LA API ---
 @app.get("/ask")
 def ask_question(question: str):
     try:
@@ -115,17 +137,16 @@ def ask_question(question: str):
             description = question.split(":", 1)[1]
             return {"answer": create_support_ticket(description), "follow_up_required": False}
 
-        decision_result = chain_with_preserved_input.invoke({"question": question})
-        intent = decision_result["decision"]["intent"]
+        intent = classify_intent(question)
         
         answer = ""
         follow_up = False
 
         if intent == "pregunta_general":
-            result = problem_chain.invoke(decision_result)
+            result = problem_chain.invoke(question)
             answer = result.get("result", "No se encontró respuesta.")
         elif intent == "reporte_de_problema":
-            result = problem_chain.invoke(decision_result)
+            result = problem_chain.invoke(question)
             solution = result.get("result", "No he encontrado una solución específica en mis documentos.")
             answer = f"{solution}\n\n¿Esta información soluciona tu problema?"
             follow_up = True
